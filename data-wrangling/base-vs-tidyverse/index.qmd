@@ -22,7 +22,6 @@ format:
   html:
     number-sections: true
     toc: true
-    keep-md: true
     toc-expanded: 3
 editor:
   render-on-save: true
