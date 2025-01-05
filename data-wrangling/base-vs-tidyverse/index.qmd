@@ -1,0 +1,2470 @@
+---
+title: Base R and Tidyverse syntax comparison for data wrangling
+Comparisons: Base R vs. tidyverse (with data.table)
+filters:
+   - assets/foldableOutput.lua
+date: today
+author:
+  - name: Emi Tanaka
+    affiliations: 
+      - name: Australian National University
+        department: Biological Data Science Institute
+        address: 46 Sullivan's Creek Road, R.N. Robertson Building, ACT 2600 Australia
+    corresponding: true
+    email: emi.tanaka@anu.edu.au
+    orcid: 0000-0002-1455-259X
+bibliography: references.bib
+# shorttitle: Examining the interface design of tidyverse
+engine: knitr
+execute:
+  echo: true
+format: 
+  html:
+    number-sections: true
+    toc: true
+    keep-md: true
+    toc-expanded: 3
+editor:
+  render-on-save: true
+---
+
+
+
+# Introduction
+
+```{r}
+library(tidyverse)
+```
+
+```{css, echo = FALSE}
+.details {
+  font-size: 0.7em;
+  padding: 5px;
+}
+.column {
+  border: 1px solid grey;
+  border-radius: 5px;
+  margin-right: 5px;
+  margin-top: 5px;
+  width: calc(50% - 10px)!important;
+}
+
+.column p {
+  padding: 5px;
+}
+```
+
+# Tabular data 
+
+```{r}
+library(palmerpenguins)
+penguins_small <- penguins[seq(1, 300, 30), 
+                           c("species", "sex", "bill_length_mm", "bill_depth_mm", "body_mass_g")] |> 
+  rename(mass = body_mass_g)
+tbl <- as_tibble(penguins_small)
+df <- as.data.frame(penguins_small)
+```
+
+::: column-margin
+
+```{r}
+#| message: false
+library(data.table)
+dt <- as.data.table(penguins_small)
+```
+
+
+
+:::
+
+
+```{r}
+#| include: false
+original <- list(tbl = tbl, 
+                 df = df, 
+                 dt = dt, 
+                 f = factor(c("A", "C", "A", "B", NA, "A", "C")),
+                 f1 = factor(c("C", "D", "D", "C", "E", "E")),
+                 f2 = factor(c("1", "101", "009", "009", "12", "12")),
+                 f0 = factor(rep(LETTERS[1:10], times = c(1, 3, 5, 16, 18, 20, 23, 27, 30, 31))))
+
+knitr::knit_hooks$set(isolate = function(before, options, envir) {
+    if(!before) {
+      df <<- original$df
+      dt <<- copy(original$dt)
+      tbl <<- original$tbl
+      f <<- original$f
+      f0 <<- original$f0
+      f1 <<- original$f1
+      f2 <<- original$f2
+    }
+  }, datatable = function(before, options, envir) {
+    if(before) {
+      conflicted::conflict_prefer_all("data.table")
+    } else {
+      conflicted::conflict_prefer_all("dplyr")
+    }
+  }, base = function(before, options, envir) {
+    if(before) {
+      conflicted::conflict_prefer_all("base")
+    } else {
+      conflicted::conflict_prefer_all("dplyr")
+    }
+  })
+conflicted::conflict_prefer_all("dplyr")
+```
+
+
+
+
+## Selecting a single column as a vector
+
+::: {.columns}
+
+::: {.column}
+
+```{r}
+df$sex
+df[["sex"]]
+df[, "sex", drop = TRUE]
+```
+
+:::
+
+::: {.column}
+
+```{r}
+#| message: false
+pull(tbl, sex)
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+dt[, .(sex)]
+```
+
+:::
+
+
+
+## Selecting columns
+
+### By column name
+
+::: {.columns}
+
+::: {.column}
+
+```{r}
+subset(df, 
+       select = c(sex, species))
+subset(df, 
+       select = c("sex", "species"))
+df[c("sex", "species")]
+df[, c("sex", "species")]
+```
+
+:::
+
+::: {.column}
+
+```{r}
+#| message: false
+select(tbl, sex, species)
+select(tbl, c(sex, species))
+select(tbl, c("sex", "species"))
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+#| message: false
+dt[, .(sex, species)]
+```
+
+:::
+
+### By position 
+
+::: {.columns}
+
+::: {.column}
+
+```{r}
+subset(df, select = c(1, 2))
+df[c(1, 2)]
+df[, c(1, 2)]
+```
+
+:::
+
+::: {.column}
+
+```{r}
+#| message: false
+select(tbl, 1, 2)
+select(tbl, c(1, 2))
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+```{r}
+dt[, c(1, 2)]
+```
+
+:::
+
+
+
+
+### By booleans
+
+::: {.columns}
+
+::: {.column}
+
+```{r}
+subset(df, select = sapply(df, is.factor))
+df[sapply(df, is.factor)]
+df[, sapply(df, is.factor)]
+```
+
+:::
+
+::: {.column}
+
+```{r}
+#| message: false
+select(tbl, where(is.factor))
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+dt[, sapply(dt, is.factor), with = FALSE]
+```
+
+:::
+
+## Deleting one column
+
+::: {.columns}
+
+::: {.column}
+
+```{r}
+subset(df, select = -sex)
+```
+
+```{r isolate = TRUE}
+df$sex <- NULL
+df
+```
+
+:::
+
+::: {.column}
+
+```{r}
+#| message: false
+select(tbl, -sex)
+mutate(tbl, sex = NULL)
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r isolate = TRUE}
+dt[, sex := NULL]
+dt
+```
+
+:::
+
+## Deleting multiple column
+
+::: {.columns}
+
+::: {.column}
+
+```{r}
+subset(df, select = -c(sex, species))
+```
+
+```{r isolate = TRUE}
+df[c("sex", "species")] <- NULL
+df
+```
+
+:::
+
+::: {.column}
+
+```{r}
+#| message: false
+select(tbl, -c(sex, species))
+select(tbl, !c(sex, species))
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+dt[, !c("sex", "species")]
+```
+
+:::
+
+## Arrange columns
+
+::: {.columns}
+
+::: {.column}
+
+```{r}
+cols <- colnames(df)
+new_order <- c("sex", setdiff(cols, "sex"))
+```
+
+
+```{r}
+subset(df, select = new_order)
+df[new_order]
+df[, new_order]
+```
+
+:::
+
+::: {.column}
+
+```{r}
+#| message: false
+select(tbl, sex, everything())
+relocate(tbl, sex, .before = species)
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+cols <- colnames(dt)
+new_order <- c("sex", setdiff(cols, "sex"))
+dt[, ..new_order]
+```
+
+:::
+
+## Rename columns
+
+
+### Rename one column
+
+::: {.columns}
+
+::: {.column}
+
+```{r isolate = TRUE}
+colnames(df)[3] <- "length"
+df
+names(df)[3] <- "bill_length"
+df
+```
+
+:::
+
+::: {.column}
+
+```{r}
+rename(tbl, 
+       length = bill_length_mm)
+# changes order at the same time though
+select(tbl, 
+       length = bill_length_mm,
+       everything())
+```
+
+
+```{r}
+nm_dict <- c("length" = "bill_length_mm")
+rename(tbl, any_of(nm_dict))
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r isolate = TRUE}
+setnames(dt, "bill_length_mm", "length")
+dt
+```
+
+:::
+
+### Rename multiple columns
+
+
+::: {.columns}
+
+::: {.column}
+
+```{r}
+cols <- colnames(df)
+```
+
+
+```{r isolate = TRUE}
+colnames(df) <- sub("_mm", "", cols)
+df
+```
+
+```{r isolate = TRUE}
+names(df)[3:4] <- sub("_mm", "", cols[3:4])
+df
+```
+
+:::
+
+::: {.column}
+
+```{r}
+#| message: false
+rename_with(tbl, 
+            ~str_remove(., "_mm"))
+
+rename_with(tbl, 
+            ~str_remove(., "_mm"), 3:4)
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r isolate = TRUE}
+cols <- colnames(dt)
+```
+
+```{r isolate = TRUE}
+setnames(dt, cols, sub("_mm", "", cols))
+dt
+```
+
+
+```{r isolate = TRUE}
+setnames(dt, cols[3:4], sub("_mm", "", cols[3:4]))
+dt
+```
+
+:::
+
+
+## Subset rows
+
+### By position
+
+::: {.columns}
+
+::: {.column}
+
+```{r}
+df[1:2, ]
+df[-c(1:2), ]
+```
+
+:::
+
+::: {.column}
+
+```{r}
+#| message: false
+slice(tbl, 1:2)
+slice(tbl, -c(1:2))
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+dt[1:2, ]
+```
+
+:::
+
+### By booleans 
+
+::: {.columns}
+
+::: {.column}
+
+```{r}
+df[!is.na(df$sex), ]
+subset(df, !is.na(sex))
+```
+
+:::
+
+::: {.column}
+
+```{r}
+#| message: false
+filter(tbl, !is.na(sex))
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+dt[!is.na(sex), ]
+```
+
+:::
+
+## Arrange rows 
+
+::: {.columns}
+
+::: {.column}
+
+```{r}
+df[order(df$sex, df$bill_length_mm), ]
+```
+
+```{r}
+df[order(df$sex, 
+         df$bill_length_mm,
+         decreasing = TRUE), ]
+```
+
+
+:::
+
+::: {.column}
+
+```{r}
+#| message: false
+arrange(tbl, sex, bill_length_mm)
+arrange(tbl, desc(sex), desc(bill_length_mm))
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+dt[order(sex, bill_length_mm), ]
+dt[order(sex, bill_length_mm, decreasing = TRUE), ]
+```
+
+:::
+
+::: {.columns}
+
+::: {.column}
+
+
+```{r}
+df[order(factor(df$sex, 
+                levels = rev(levels(df$sex))), 
+         df$bill_length_mm), ]
+```
+
+
+:::
+
+::: {.column}
+
+```{r}
+#| message: false
+arrange(tbl, desc(sex), bill_length_mm)
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+dt[order(factor(sex, 
+                levels = rev(levels(sex))), 
+         bill_length_mm), ]
+```
+
+:::
+
+## Insert or update column 
+
+::: {.columns}
+
+::: {.column}
+
+
+```{r isolate = TRUE}
+transform(df, mpbl = mass / bill_length_mm)
+
+df$mpbl <- df$mass / df$bill_length_mm
+df
+
+df[["mpbl"]] <- df$mass / df$bill_length_mm
+df
+
+```
+
+
+:::
+
+::: {.column}
+
+```{r}
+mutate(tbl, mpbl = mass / bill_length_mm)
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+dt[, mpbl := mass / bill_length_mm]
+dt
+```
+
+:::
+
+## Group operations 
+
+::: {.columns}
+
+::: {.column}
+
+
+```{r}
+aggregate(df, mass ~ sex + species, 
+          \(x) c(avg = mean(x), 
+                 sd = sd(x), 
+                 n = length(x)))
+
+aggregate(df$mass, 
+          by = list(df$sex, df$species), 
+          \(x) c(avg = mean(x), 
+                 sd = sd(x), 
+                 n = length(x)))
+```
+
+Below doesn't work where there are missing combinations.
+
+```{r}
+with(df, 
+     tapply(
+       mass, 
+       list(sex = sex, species = species), 
+       \(x) c(avg = mean(x), 
+              sd = sd(x), 
+              n = length(x))
+       )) |>
+  array2DF() 
+```
+
+
+:::
+
+::: {.column}
+
+```{r}
+#| message: false
+summarise(tbl, 
+          avg = mean(mass), 
+          sd = sd(mass), 
+          n = n(),
+          .by = c(sex, species))
+
+summarise(group_by(tbl, sex, species), 
+          avg = mean(mass), 
+          sd = sd(mass),
+          n = n())
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+dt[, 
+   .(avg = mean(mass), 
+     sd = sd(mass),
+     n = .N), 
+   by = .(sex, species)]
+```
+
+:::
+
+
+## Row operations
+
+
+::: {.columns}
+
+::: {.column}
+
+
+```{r}
+apply(df[, sapply(df, is.numeric)], 1, max)  
+```
+
+:::
+
+::: {.column}
+
+```{r}
+tbl |> 
+  rowwise() |> 
+  mutate(result = max(c_across(where(is.numeric)))) |> 
+  pull(result)
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+dt[, apply(.SD, 1, max), .SDcol = sapply(dt, is.numeric)]
+```
+
+:::
+
+## Column operations
+
+
+::: {.columns}
+
+::: {.column}
+
+
+```{r}
+apply(df[, sapply(df, is.numeric)], 2, max)  
+```
+
+:::
+
+::: {.column}
+
+```{r}
+summarise(tbl, 
+          across(where(is.numeric), max))
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+dt[, lapply(.SD, max), .SDcol = sapply(dt, is.numeric)]
+```
+
+:::
+
+
+## Update specific cells in a column with a single value
+
+
+### By position
+
+::: {.columns}
+
+::: {.column}
+
+
+```{r isolate = TRUE}
+df[1:2, "mass"] <- 0
+df
+```
+
+```{r isolate = TRUE}
+df$mass[1:2] <- 0
+df
+```
+
+:::
+
+::: {.column}
+
+```{r}
+mutate(tbl, 
+       mass = if_else(row_number() %in% 1:2, 
+                      0, 
+                      mass))
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+dt[, mass := fifelse(.I %in% 1:2, 0, mass)][]
+```
+
+:::
+
+### By boolean
+
+::: {.columns}
+
+::: {.column}
+
+
+```{r isolate = TRUE}
+df[df$sex == "female", "mass"] <- 0
+df
+```
+
+```{r isolate = TRUE}
+df$mass[df$sex == "female"] <- 0
+df
+```
+
+
+
+:::
+
+::: {.column}
+
+```{r}
+mutate(tbl, 
+       mass = ifelse(sex == "female", 
+                     0, 
+                     mass))
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+dt[sex == "female", mass := 0][]
+```
+
+:::
+
+
+## Update specific cells in a column with a vector
+
+
+### By position
+
+::: {.columns}
+
+::: {.column}
+
+
+```{r isolate = TRUE}
+df[1:2, "mass"] <- c(0, 1)
+df
+```
+
+```{r isolate = TRUE}
+df$mass[1:2] <- c(0, 1)
+df
+```
+
+:::
+
+::: {.column}
+
+```{r}
+mutate(tbl, 
+       mass = ifelse(row_number() %in% 1:2, 
+                     c(0, 1), 
+                     mass))
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+dt[1:2, mass := c(0, 1)][]
+```
+
+:::
+
+### By boolean
+
+::: {.columns}
+
+::: {.column}
+
+
+```{r isolate = TRUE}
+within(df, 
+       mass[sex == "female"] <- mass[sex == "female"] / 2)
+```
+
+
+
+:::
+
+::: {.column}
+
+```{r}
+mutate(tbl, 
+       mass = if_else(sex == "female",
+                      mass / 2, 
+                      mass))
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+dt[sex == "female", mass := mass / 2][]
+```
+
+:::
+
+
+## Update specific cells in a column with multiple cases
+
+
+::: {.columns}
+
+::: {.column}
+
+
+```{r isolate = TRUE}
+df$size <- ifelse(df$sex == "female" & df$mass > 4000,
+                  "large",
+                  ifelse(df$sex == "male" & df$mass > 4100, 
+                         "large", 
+                         "small"))
+df                
+```
+
+
+
+:::
+
+::: {.column}
+
+```{r}
+mutate(tbl, 
+       size = case_when(sex == "female" & mass > 4000 ~ "large",
+                        sex == "male" & mass > 4100 ~ "large",
+                        .default = "small"))
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+dt[, size := "small"]
+dt[sex == "female" & mass > 4000, size := "large"]
+dt[sex == "male" & mass > 4100, size := "large"][]
+```
+
+:::
+
+
+
+## Merge or join two tabular data
+
+```{r}
+df2 <- data.frame(sex = c("female", "male",  "female", "male"),
+                  species = c("Adelie", "Adelie", "Chinstrap", "Chinstrap"),
+                  name = c("A", "B", "C", "D"))
+tbl2 <- as_tibble(df2)
+```
+
+::: {.column-margin}
+
+```{r}
+dt2 <- as.data.table(df2)
+```
+
+
+:::
+
+### Left join 
+
+::: {.columns}
+
+::: {.column}
+
+
+```{r isolate = TRUE}
+merge(df, df2, by = c("species", "sex"),
+      all.x = TRUE)        
+```
+
+:::
+
+::: {.column}
+
+```{r}
+left_join(df, df2, join_by(species, sex))  
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+merge(dt, dt2, by = c("species", "sex"),
+      all.x = TRUE) 
+```
+
+:::
+
+### Right join 
+
+::: {.columns}
+
+::: {.column}
+
+
+```{r isolate = TRUE}
+merge(df, df2, by = c("species", "sex"),
+      all.y = TRUE)              
+```
+
+:::
+
+::: {.column}
+
+```{r}
+right_join(df, df2, join_by(species, sex)) 
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+merge(dt, dt2, by = c("species", "sex"),
+      all.y = TRUE)
+```
+
+:::
+
+
+### Full join 
+
+::: {.columns}
+
+::: {.column}
+
+
+```{r isolate = TRUE}
+merge(df, df2, by = c("species", "sex"),
+      all = TRUE)              
+```
+
+:::
+
+::: {.column}
+
+```{r}
+full_join(df, df2, join_by(species, sex)) 
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+merge(dt, dt2, by = c("species", "sex"),
+      all = TRUE)
+```
+
+:::
+
+
+### Inner join 
+
+::: {.columns}
+
+::: {.column}
+
+
+```{r isolate = TRUE}
+merge(df, df2, by = c("species", "sex"))              
+```
+
+:::
+
+::: {.column}
+
+```{r}
+inner_join(df, df2, join_by(species, sex)) 
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+merge(dt, dt2, by = c("species", "sex"))
+```
+
+:::
+
+### Cross join 
+
+::: {.columns}
+
+::: {.column}
+
+
+```{r isolate = TRUE}
+merge(df, df2, by = NULL)              
+```
+
+:::
+
+::: {.column}
+
+```{r}
+cross_join(df, df2) 
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+merge(dt, dt2, by = NULL)
+```
+
+:::
+
+
+### Anti join 
+
+::: {.columns}
+
+::: {.column}
+
+
+```{r isolate = TRUE}
+df[!(df$sex %in% df2$sex & df$species %in% df2$species), ]        
+```
+
+:::
+
+::: {.column}
+
+```{r}
+anti_join(df, df2, join_by(sex, species)) 
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r datatable=TRUE}
+setDT(dt)[!dt2, on = c("sex", "species")]
+```
+
+:::
+
+### Bind columns
+
+::: {.columns}
+
+::: {.column}
+
+
+```{r}
+cbind(df[1:2], df[3:4])
+```
+
+
+:::
+
+::: {.column}
+
+```{r}
+#| message: false
+bind_cols(df[1:2], df[3:4])
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+setDT(c(dt[, 1:2], dt[, 3:4]))
+```
+
+:::
+
+### Bind rows
+
+::: {.columns}
+
+::: {.column}
+
+
+```{r}
+df2[setdiff(names(df), names(df2))] <- NA
+df[setdiff(names(df2), names(df))] <- NA
+rbind(df, df2)
+```
+
+
+:::
+
+::: {.column}
+
+```{r}
+#| message: false
+bind_rows(tbl, tbl2)
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+rbindlist(list(dt, dt2), 
+          fill = TRUE)
+```
+
+:::
+
+## Reshape data to longer format
+
+::: {.columns}
+
+::: {.column}
+
+
+```{r}
+reshape(df, 
+        varying = grep("^bill", colnames(df)), 
+        v.names = "bill", 
+        direction = "long",
+        timevar = "type",
+        times = c("length", "depth"))
+```
+
+
+:::
+
+::: {.column}
+
+```{r}
+pivot_longer(tbl, cols = starts_with("bill"), names_to = "type", names_pattern = "bill_(.+)_mm")
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+melt(dt, 
+     measure.vars = grep("^bill", colnames(dt)), 
+     variable.name = "type",
+     value.name = "bill")[
+       , type := sub("^bill_", "", type)][
+       , type := sub("_mm$", "", type)][]
+```
+
+:::
+
+
+## Reshape data to wider format
+
+::: {.columns}
+
+::: {.column}
+
+
+```{r}
+reshape(df[1:2, ],  
+        idvar = "species",
+        timevar = "sex",
+        direction = "wide")
+```
+
+
+:::
+
+::: {.column}
+
+```{r}
+pivot_wider(tbl[1:2, ],
+            names_from = sex, 
+            values_from = -c(sex, species))
+```
+
+:::
+
+:::
+
+::: {.column-margin}
+
+
+```{r}
+dcast(dt[1:2, ], 
+      species ~ sex, 
+      value.var = setdiff(colnames(dt), c("sex", "species")))
+```
+
+:::
+
+
+# Strings
+
+```{r}
+x <- c("Banana", " citrus ", "app le ")
+```
+
+
+## Presence/absence of a pattern 
+
+::: {.columns}
+::: {.column}
+```{r}
+grepl("a", x)
+```
+:::
+::: {.column}
+```{r}
+str_detect(x, "a")
+```
+:::
+:::
+
+
+
+## Duplicate string 
+
+::: {.columns}
+::: {.column}
+```{r}
+strrep(x, 2)
+```
+:::
+::: {.column}
+```{r}
+str_dup(x, 2)
+```
+:::
+:::
+
+## Extract (first occurence only)
+
+Warning 
+
+::: {.columns}
+::: {.column}
+```{r}
+regmatches(x, m = regexpr("an", x))
+```
+:::
+::: {.column}
+```{r}
+str_extract(x, "an")
+```
+:::
+:::
+
+## Extract (all occurences)
+
+::: {.columns}
+::: {.column}
+```{r}
+regmatches(x, m = gregexpr("an", x))
+```
+:::
+::: {.column}
+```{r}
+str_extract_all(x, "an")
+```
+:::
+:::
+
+## Length
+
+::: {.columns}
+::: {.column}
+```{r}
+nchar(x)
+```
+:::
+::: {.column}
+```{r}
+str_length(x)
+```
+:::
+:::
+
+## Locate (first occurence only)
+
+::: {.columns}
+::: {.column}
+```{r}
+regexpr("a", x)
+```
+:::
+::: {.column}
+```{r}
+str_locate(x, "a")
+```
+:::
+:::
+
+## Locate (all occurences)
+
+::: {.columns}
+::: {.column}
+```{r}
+gregexpr("a", x)
+```
+:::
+::: {.column}
+```{r}
+str_locate_all(x, "a")
+```
+:::
+:::
+
+## Match 
+
+::: {.columns}
+::: {.column}
+```{r}
+regmatches(x, m = regexec("a", x))
+```
+:::
+::: {.column}
+```{r}
+str_match(x, "a")
+```
+:::
+:::
+
+## Order 
+
+::: {.columns}
+::: {.column}
+```{r}
+order(x)
+```
+:::
+::: {.column}
+```{r}
+str_order(x)
+```
+:::
+:::
+
+## Replace (first occurence only)
+
+::: {.columns}
+::: {.column}
+```{r}
+sub("a", "e", x)
+```
+:::
+::: {.column}
+```{r}
+str_replace(x, "a", "e")
+```
+:::
+:::
+
+## Replace (all occurences)
+
+::: {.columns}
+::: {.column}
+```{r}
+gsub("a", "e", x)
+```
+:::
+::: {.column}
+```{r}
+str_replace_all(x, "a", "e")
+```
+:::
+:::
+
+## Sort
+
+::: {.columns}
+::: {.column}
+```{r}
+sort(x)
+```
+:::
+::: {.column}
+```{r}
+str_sort(x)
+```
+:::
+:::
+
+## Split 
+
+::: {.columns}
+::: {.column}
+```{r}
+strsplit(x, "a")
+```
+:::
+::: {.column}
+```{r}
+str_split(x, "a")
+```
+:::
+:::
+
+## Subset string 
+
+::: {.columns}
+::: {.column}
+```{r}
+substr(x, 1, 2)
+```
+:::
+::: {.column}
+```{r}
+str_sub(x, 1, 2)
+```
+:::
+:::
+
+## Subset string vector
+
+::: {.columns}
+::: {.column}
+```{r}
+grep(x,"a", value = TRUE)
+```
+:::
+::: {.column}
+```{r}
+str_subset(x, "a")
+```
+:::
+:::
+
+## Transform to lower case 
+
+::: {.columns}
+::: {.column}
+```{r}
+tolower(x)
+```
+:::
+::: {.column}
+```{r}
+str_to_lower(x)
+```
+:::
+:::
+
+## Transform to upper case 
+
+::: {.columns}
+::: {.column}
+```{r}
+toupper(x)
+```
+:::
+::: {.column}
+```{r}
+str_to_upper(x)
+```
+:::
+:::
+
+## Transform to title case 
+
+::: {.columns}
+::: {.column}
+
+None.
+
+:::
+::: {.column}
+```{r}
+str_to_title(x)
+```
+:::
+:::
+
+## Trim white spaces
+
+::: {.columns}
+::: {.column}
+```{r}
+trimws(x)
+```
+:::
+::: {.column}
+```{r}
+str_trim(x)
+```
+:::
+:::
+
+## Which 
+
+::: {.columns}
+::: {.column}
+```{r}
+grep(x, "a")
+```
+:::
+::: {.column}
+```{r}
+str_which(x, "a")
+```
+:::
+:::
+
+## Wrap
+
+::: {.columns}
+::: {.column}
+```{r}
+strwrap(x, 4)
+```
+:::
+::: {.column}
+```{r}
+str_wrap(x, 4)
+```
+:::
+:::
+
+# Factors 
+
+```{r}
+set.seed(1)
+f <- factor(c("A", "C", "A", "B", NA, "A", "C"))
+x1 <- runif(length(f))
+x2 <- runif(length(f))
+f0 <- factor(rep(LETTERS[1:10], times = c(1, 3, 5, 16, 18, 20, 23, 27, 30, 31)))
+f1 <- factor(c("C", "D", "D", "C", "E", "E"))
+f2 <- factor(c("1", "101", "009", "009", "12", "12"))
+```
+
+
+## Anonymise levels
+
+::: {.columns}
+::: {.column}
+```{r, isolate = TRUE}
+new_lvls <- seq(nlevels(f))
+levels(f) <- sample(new_lvls)
+factor(f, new_lvls)
+```
+:::
+::: {.column}
+```{r}
+fct_anon(f)
+```
+:::
+:::
+
+## Concatenate
+
+::: {.columns}
+::: {.column}
+```{r, isolate = TRUE}
+c(f1, f2)
+```
+:::
+::: {.column}
+```{r}
+fct_c(f1, f2)
+```
+:::
+:::
+
+## Collapse levels 
+
+::: {.columns}
+::: {.column}
+```{r, isolate = TRUE}
+levels(f)[levels(f) %in% c("A", "B")] <- "a"
+f
+```
+:::
+::: {.column}
+```{r}
+fct_collapse(f, a = c("A", "B"))
+```
+:::
+:::
+
+## Counting levels 
+
+::: {.columns}
+::: {.column}
+```{r, isolate = TRUE}
+as.data.frame(table(f))
+```
+:::
+::: {.column}
+```{r}
+fct_count(f)
+```
+:::
+:::
+
+## Crossing levels 
+
+::: {.columns}
+::: {.column}
+```{r}
+factor(paste(f1, f2, sep = ":"))
+```
+:::
+::: {.column}
+```{r}
+fct_cross(f1, f2)
+```
+:::
+:::
+
+## Drop levels not in data
+
+::: {.columns}
+::: {.column}
+```{r}
+factor(f[-4])
+```
+:::
+::: {.column}
+```{r}
+fct_drop(f[-4])
+```
+:::
+:::
+
+## Add additional levels
+
+::: {.columns}
+::: {.column}
+```{r isolate = TRUE}
+levels(f) <- c(levels(f), c("D", "E"))
+f
+```
+:::
+::: {.column}
+```{r}
+fct_expand(f, c("D", "E"))
+```
+:::
+:::
+
+## Reorder levels by frequency
+
+::: {.columns}
+::: {.column}
+```{r isolate = TRUE}
+factor(f, levels = rev(names(sort(table(f))))) 
+```
+:::
+::: {.column}
+```{r}
+fct_infreq(f)
+```
+:::
+:::
+
+## Reorder levels by order of appearance in data
+
+::: {.columns}
+::: {.column}
+```{r isolate = TRUE}
+factor(f, levels = unique(f)) 
+```
+:::
+::: {.column}
+```{r}
+fct_inorder(f)
+```
+:::
+:::
+
+## Reorder levels by numeric order
+
+::: {.columns}
+::: {.column}
+```{r isolate = TRUE}
+lvls <- levels(f2)
+factor(f2, 
+       levels = lvls[order(as.numeric(lvls))]) 
+```
+:::
+::: {.column}
+```{r}
+fct_inseq(f2)
+```
+:::
+:::
+
+## Lump levels
+
+::: {.columns}
+::: {.column}
+```{r}
+lvls <- levels(f0)
+tt <- sort(table(f0))
+lvls_order <- names(rev(tt))
+```
+```{r isolate = TRUE}
+levels(f0)[lvls %in% setdiff(lvls, lvls_order[1:2])] <- "Other"
+f0
+```
+
+:::
+::: {.column}
+```{r}
+fct_lump_n(f, n = 2)
+```
+:::
+:::
+
+::: {.columns}
+::: {.column}
+```{r isolate = TRUE}
+n <- min(ceiling(0.2 * length(f0)), length(f0))
+levels(f0)[lvls %in% setdiff(lvls, lvls_order[1:n])] <- "Other"
+f0
+```
+:::
+::: {.column}
+```{r}
+fct_lump_prop(f0, prop = 0.2)
+```
+:::
+:::
+
+::: {.columns}
+::: {.column}
+```{r isolate = TRUE}
+levels(f0)[lvls %in% names(tt[tt < 2])] <- "Other"
+f0
+```
+:::
+::: {.column}
+```{r}
+fct_lump_min(f0, min = 2)
+```
+:::
+:::
+
+::: {.columns}
+::: {.column}
+```{r isolate = TRUE}
+bottom_lvls <- seq(which.min(cumsum(tt)[-length(tt)] - tt[-1]))
+levels(f0)[lvls %in% names(tt[bottom_lvls])] <- "Other"
+f0
+```
+:::
+::: {.column}
+```{r}
+fct_lump_lowfreq(f0)
+```
+:::
+:::
+
+
+## Match levels
+
+::: {.columns}
+::: {.column}
+```{r isolate = TRUE}
+if("A" %in% levels(f)) {
+  f %in% "A"
+}
+```
+:::
+::: {.column}
+```{r}
+fct_match(f, "A")
+```
+:::
+:::
+
+
+## Recode levels
+
+::: {.columns}
+::: {.column}
+```{r isolate = TRUE}
+factor(sapply(f, \(x) {
+  x <- as.character(x)
+  switch(x, 
+         A = "apple", 
+         B = "banana",
+         x)
+  }))
+```
+:::
+::: {.column}
+```{r}
+fct_recode(f, 
+           apple = "A", 
+           banana = "B")
+```
+:::
+:::
+
+## Relabel levels
+
+::: {.columns}
+::: {.column}
+```{r isolate = TRUE}
+levels(f) <- paste0(levels(f), "1")
+f
+```
+:::
+::: {.column}
+```{r}
+fct_relabel(f, ~str_c(., "1"))
+```
+:::
+:::
+
+## Relevel
+
+::: {.columns}
+::: {.column}
+```{r isolate = TRUE}
+relevel(f, ref = "B")
+```
+:::
+::: {.column}
+```{r}
+fct_relevel(f, "B")
+```
+:::
+:::
+
+
+## Reorder
+
+::: {.columns}
+::: {.column}
+```{r isolate = TRUE}
+reorder(f, x1, mean)
+```
+:::
+::: {.column}
+```{r}
+fct_reorder(f, x1, mean)
+```
+:::
+:::
+
+
+::: {.columns}
+::: {.column}
+```{r isolate = TRUE}
+reorder(f, seq_along(f), 
+        \(i) sum(x1[i] * x2[i]))
+```
+:::
+::: {.column}
+```{r}
+fct_reorder2(f, x1, x2, 
+             \(x, y) sum(x * y))
+```
+:::
+:::
+
+## Unique
+
+::: {.columns}
+::: {.column}
+```{r}
+unique(f)
+```
+:::
+::: {.column}
+```{r}
+fct_unique(f)
+```
+:::
+:::
+
+## Reverse order of levels
+
+::: {.columns}
+::: {.column}
+```{r isolate = TRUE}
+factor(f, levels = rev(levels(f)))
+```
+:::
+::: {.column}
+```{r}
+fct_rev(f)
+```
+:::
+:::
+
+
+## Shift order of labels
+
+::: {.columns}
+::: {.column}
+```{r isolate = TRUE}
+factor(f, c(levels(f)[-1], levels(f)[1]))
+```
+:::
+::: {.column}
+```{r}
+fct_shift(f)
+```
+:::
+:::
+
+
+
+## Shuffle order of labels
+
+::: {.columns}
+::: {.column}
+```{r isolate = TRUE}
+factor(f, sample(levels(f)))
+```
+:::
+::: {.column}
+```{r}
+fct_shuffle(f)
+```
+:::
+:::
+
+## Unify labels across list
+
+::: {.columns}
+::: {.column}
+```{r isolate = TRUE}
+lapply(list(f1, f2), 
+       \(x) factor(x, c(levels(f1), levels(f2))))
+```
+:::
+::: {.column}
+```{r}
+fct_unify(list(f1, f2))
+```
+:::
+:::
+
+
+# Date and time 
+
+## Get today's date 
+
+::: {.columns}
+::: {.column}
+```{r}
+Sys.Date()
+```
+:::
+::: {.column}
+```{r}
+today()
+```
+:::
+:::
+
+## Get current date and time 
+
+::: {.columns}
+::: {.column}
+```{r}
+Sys.time()
+```
+:::
+::: {.column}
+```{r}
+now()
+```
+:::
+:::
+
+## Change input to date 
+
+::: {.columns}
+::: {.column}
+```{r}
+as.Date("2025-01-01")
+```
+:::
+::: {.column}
+```{r}
+as_date("2025-01-01")
+```
+:::
+:::
+
+
+::: {.columns}
+::: {.column}
+```{r}
+as.Date("2025 Jan 1", format = "%Y %b %d")
+as.Date("1/3/2025", format = "%m/%d/%Y")
+as.Date("1-3-2025", format = "%d-%m-%Y")
+```
+:::
+::: {.column}
+```{r}
+ymd("2025 Jan 1")
+mdy("1/3/2025")
+dmy("1-3-2025")
+```
+:::
+:::
+
+
+## Change input to date and time
+
+::: {.columns}
+::: {.column}
+```{r}
+as.POSIXct("2025-01-01 05:00:00", tz = "UTC")
+as.POSIXlt("2025-01-01 05:00:00", tz = "UTC")
+```
+:::
+::: {.column}
+```{r}
+as_datetime("2025-01-01 05:00:00")
+```
+:::
+:::
+
+
+## Extract year, month, day, hour, minutes or seconds
+
+```{r}
+d <- as.POSIXct("2025/01/03 01:20:40")
+```
+
+
+::: {.columns}
+::: {.column}
+```{r}
+as.numeric(format(d, "%Y"))
+```
+:::
+::: {.column}
+```{r}
+year(d)
+```
+:::
+:::
+
+
+::: {.columns}
+::: {.column}
+```{r}
+as.numeric(format(d, "%m"))
+```
+:::
+::: {.column}
+```{r}
+month(d)
+```
+:::
+:::
+
+::: {.columns}
+::: {.column}
+```{r}
+as.numeric(format(d, "%d"))
+```
+:::
+::: {.column}
+```{r}
+day(d)
+```
+:::
+:::
+
+::: {.columns}
+::: {.column}
+```{r}
+as.numeric(format(d, "%H"))
+```
+:::
+::: {.column}
+```{r}
+hour(d)
+```
+:::
+:::
+
+::: {.columns}
+::: {.column}
+```{r}
+as.numeric(format(d, "%M"))
+```
+:::
+::: {.column}
+```{r}
+minutes(d)
+```
+:::
+:::
+
+::: {.columns}
+::: {.column}
+```{r}
+as.numeric(format(d, "%S"))
+```
+:::
+::: {.column}
+```{r}
+seconds(d)
+```
+:::
+:::
+
+# Functional programming
+
+```{r}
+x <- list(1:3, 2:5, 3:-1)
+y <- list("a", "b", "c")
+z <- list(1, 2, 3)
+```
+
+
+## Iterate over a list
+
+### Return as list 
+
+::: {.columns}
+::: {.column}
+```{r}
+lapply(x, sum)
+```
+:::
+::: {.column}
+```{r}
+map(x, sum)
+```
+:::
+:::
+
+### Return as vector
+
+::: {.columns}
+::: {.column}
+```{r}
+vapply(x, length, integer(1))
+```
+:::
+::: {.column}
+```{r}
+map_int(x, length)
+```
+:::
+:::
+
+
+::: {.columns}
+::: {.column}
+```{r}
+vapply(x, sum, double(1))
+```
+:::
+::: {.column}
+```{r}
+map_dbl(x, sum)
+```
+:::
+:::
+
+::: {.columns}
+::: {.column}
+```{r}
+vapply(x, is.numeric, logical(1))
+```
+:::
+::: {.column}
+```{r}
+map_lgl(x, is.numeric)
+```
+:::
+:::
+
+::: {.columns}
+::: {.column}
+```{r}
+vapply(x, \(x) letters[length(x)], character(1))
+```
+:::
+::: {.column}
+```{r}
+map_chr(x, ~letters[length(.x)])
+```
+:::
+:::
+
+
+## Iterate over two lists
+
+
+
+::: {.columns}
+::: {.column}
+```{r}
+lapply(seq_along(x), 
+       \(i) paste0(y[[i]], sum(x[[i]])))
+```
+:::
+::: {.column}
+```{r}
+map2(x, y, ~paste0(.y, sum(.x)))
+```
+:::
+:::
+
+
+## Iterate over two or more lists
+
+
+
+::: {.columns}
+::: {.column}
+```{r}
+lapply(seq_along(x), 
+       \(i) paste0(sum(x[[i]]), y[[i]], z[[i]]))
+```
+:::
+::: {.column}
+```{r}
+pmap(list(x, y, z), 
+     ~paste0(sum(..1), ..2, ..3))
+```
+:::
+:::
+
+# Computational details 
+
+```{r sessioninfo}
+#| eval: false
+#| echo: true
+sessioninfo::session_info(include_base = TRUE)
+```
+
+<pre>
+```{r sessioninfo}
+#| results: asis
+#| echo: false
+```
+</pre>
+
+

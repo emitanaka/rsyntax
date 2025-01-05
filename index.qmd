@@ -1,0 +1,5 @@
+---
+title: R Syntax Comparisons
+---
+
+- [Data wrangling](/data-wrangling/)

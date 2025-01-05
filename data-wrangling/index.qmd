@@ -1,0 +1,11 @@
+---
+title: Data wrangling
+listing:
+  contents: .
+  type: table
+  table-striped: true
+  field-links: [Comparisons]
+  fields: [Comparisons]
+  filter-ui: false
+---
+
