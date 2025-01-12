@@ -917,7 +917,7 @@ dt[, lapply(.SD, max), .SDcol = is.numeric]
 :::
 
 
-## Update specific cells in a column with a single value
+## Update cells with a single value
 
 
 ### By position
@@ -1009,7 +1009,7 @@ dt[sex == "female", mass := 0][]
 :::
 
 
-## Update specific cells in a column with a vector
+## Update cells with a vector
 
 
 ### By position
@@ -1096,7 +1096,7 @@ dt[sex == "female", mass := mass / 2][]
 :::
 
 
-## Update specific cells in a column with multiple cases
+## Update cells with multiple cases
 
 Create a new column `size` based on the following conditions: if `sex` is female and `mass` is greater than 4000, then `size` is large, if `sex` is male and `mass` is greater than 4100, then `size` is large, otherwise `size` is small.
 
