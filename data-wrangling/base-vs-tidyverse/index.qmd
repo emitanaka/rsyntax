@@ -139,45 +139,58 @@ conflicted::conflict_prefer_all("dplyr")
 ```
 
 
-
+See also the [vignette of `dplyr` package](https://dplyr.tidyverse.org/articles/base.html) for comparison with Base R.
 
 ## Selecting a single column as a vector
+
+### By name
 
 Extract the `sex` column as a vector.
 
 ::: {.columns}
-
 ::: {.column}
-
 ```{r}
 df$sex
 df[["sex"]]
 df[, "sex", drop = TRUE]
 ```
-
 :::
-
 ::: {.column}
-
 ```{r}
 #| message: false
 pull(tbl, sex)
 ```
-
 :::
-
 :::
-
 ::: {.column-margin}
-
-
 ```{r}
-dt[, .(sex)]
+dt[, sex]
 ```
-
 :::
 
+### By position
 
+Extract the first column as a vector.
+
+::: {.columns}
+::: {.column}
+```{r}
+df[[1]]
+df[, 1, drop = TRUE]
+```
+:::
+::: {.column}
+```{r}
+#| message: false
+pull(tbl, 1)
+```
+:::
+:::
+::: {.column-margin}
+```{r}
+dt[[1]]
+```
+:::
 
 ## Selecting columns
 
@@ -293,7 +306,7 @@ select(tbl, where(is.factor))
 
 
 ```{r}
-dt[, sapply(dt, is.factor), with = FALSE]
+dt[, .SD, .SDcols = is.factor]
 ```
 
 :::
@@ -387,16 +400,11 @@ Order the columns such that `sex` is the first column.
 
 ::: {.column}
 
-```{r}
-cols <- colnames(df)
-new_order <- c("sex", setdiff(cols, "sex"))
-```
-
 
 ```{r}
-subset(df, select = new_order)
-df[new_order]
-df[, new_order]
+subset(df, select = union("sex", names(df)))
+df[union("sex", names(df))]
+df[, union("sex", names(df))]
 ```
 
 :::
@@ -417,9 +425,7 @@ relocate(tbl, sex, .before = species)
 
 
 ```{r}
-cols <- colnames(dt)
-new_order <- c("sex", setdiff(cols, "sex"))
-dt[, ..new_order]
+dt[, .SD, .SDcols = union("sex", names(dt))]
 ```
 
 :::
