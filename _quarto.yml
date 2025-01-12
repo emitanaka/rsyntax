@@ -3,12 +3,15 @@ project:
 
 website:
   title: "R Syntax"
+  repo-url: https://github.com/emitanaka/rsyntax
+  issue-url: https://github.com/emitanaka/rsyntax/issues
   repo-actions: [edit, source, issue]
   navbar:
     left:
       - href: index.qmd
         text: Home
         icon: house-fill
+        
 format:
   html:
     theme: cosmo
